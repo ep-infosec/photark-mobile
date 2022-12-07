@@ -1,0 +1,664 @@
+<!DOCTYPE HTML>
+<html>
+	<head >
+		<title>Photark Mobile</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link href="css/jquery.mobile-1.1.0.min.css" rel="stylesheet"
+		type="text/css" />
+		<link href="css/mobiscroll-2.0.full.min.css" rel="stylesheet"
+		type="text/css" />
+		<link href="css/photoswipe.css" rel="stylesheet"
+		type="text/css" />
+		<link href="css/jquery.mobile.simpledialog.css" rel="stylesheet"
+		type="text/css" />
+		<link rel="stylesheet"  href="css/MetroJs.lt.css" type="text/css" />
+		<!-- This file contains custom CSS definitions.  -->
+		<link href="css/custom.css" rel="stylesheet"
+		type="text/css" />
+		
+		<!-- JQuery Mobile dependencies  -->
+		<script type="text/javascript" src="scripts/jquery-1.7.2.min.js"></script>
+		<script type="text/javascript" src="scripts/jquery.mobile-1.1.0.min.js"></script>
+		
+		<!-- Date Picker UI component -->
+		<script type="text/javascript" src="scripts/mobiscroll-2.0.full.min.js"></script>
+		
+		<!-- Phonegap dependencies -->
+		<script type="text/javascript" charset="utf-8" src="scripts/cordova-1.8.0.js" ></script>
+		
+		<!-- Phtoswipe photo galleryUI component dependencies -->
+		<script type="text/javascript" charset="utf-8" src="scripts/klass.min.js"></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/code.photoswipe-3.0.5.min.js"></script>
+		
+		<!--For Facebook Implementation Start-->
+		<script type="text/javascript" src="scripts/cdv-plugin-fb-connect.js"></script><!--Facebook Connect Plugin-->
+		<script type="text/javascript" src="scripts/facebook_js_sdk.js"></script><!--Facebook JS SDK-->
+		<script type="text/javascript" src="scripts/photark_facebook.js"></script><!--Facebook Implementation-->
+		<!--For Facebook Implementation End-->
+		
+		<!-- Library to show dialog boxes -->
+		<script type="text/javascript" charset="utf-8" src="scripts/jquery.mobile.simpledialog2.js"></script>
+		
+		<!-- Photark core Java Script files --> 
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_UI.js"></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_events.js"></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_contacts.js" ></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_utils.js" ></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_tagging.js" ></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_dataAccess.js"></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_search.js"></script>	
+		
+		<!--For Flickr Implementation Start-->
+		<script type="text/javascript" charset="utf-8" src="scripts/childbrowser.js"></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/jquery.md5.js"></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/sha1.js"></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/MetroJs.lt.js"></script>
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_flickr.js"></script>
+		<!--For Flickr Implementation End-->
+		<!--For Picasa Implementation Start-->
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_picasa.js"></script>
+		<!--For Picasa Implementation End-->
+		
+		<!-- Google Maps API -->
+		<script type="text/javascript" charset="utf-8" src="http://maps.googleapis.com/maps/api/js?libraries=places&sensor=true"></script>
+		
+		<!-- Photark core Java Script files --> 
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_geoLocation.js" ></script>
+		
+		<!-- map UI library for JQuery -->
+		<script type="text/javascript" charset="utf-8" src="scripts/jquery.ui.map.js"></script>
+		<!-- <script type="text/javascript" charset="utf-8" src="scripts/jquery.ui.map.services.js"></script> -->
+		
+		<!-- Photark core Java Script files -->
+		<script type="text/javascript" charset="utf-8" src="scripts/photark_MapView.js"></script>
+		
+		<script type="text/javascript">
+			var pictureSource;
+			// picture source
+			var destinationType;
+			// sets the format of returned value
+			
+			var windowWidth;
+			var windowHeight;
+			
+			var tagObjects;	//Newly added tags which not yet saved
+			var tagObjectsSaved; //Tags loaded from database
+
+			// Wait for device
+			document.addEventListener("deviceready", onDeviceReady, false);
+
+			function onDeviceReady() {
+				checkNetwork();
+				
+				pictureSource = navigator.camera.PictureSourceType;
+				destinationType = navigator.camera.DestinationType;
+				
+				openDB();	//Initialize the database
+				
+				//Screen orientation changed
+				$(window).bind( 'orientationchange', function(e){
+					if ($.event.special.orientationchange.orientation() == "portrait") {
+						adjustScreenLayout();
+					} else {
+						adjustScreenLayout();
+					}
+				});
+				adjustScreenLayout();
+				
+				//To handle menu button presses
+				document.addEventListener("menubutton", onMenuClick, false);	
+				
+				//To handle back button presses
+				document.addEventListener("backbutton", onBackKeyDown, false);	
+			}
+
+			//Document ready function
+			$(function() {
+
+				initializeDataPickers(); //photark_UI.js
+				initializeTimePickers();				
+				
+				initilizeClickEvents(); //photark_events.js 
+			    	
+			    //Auto complete feature of location
+				var options = {
+  					types: ['(cities)'
+					]
+				};
+				if(google) {		//TODO check which object is undefined
+					var autocomplete = new google.maps.places.Autocomplete($("#editLocation")[0], options);
+					google.maps.event.addListener(autocomplete, 'place_changed', function() {
+						var place = autocomplete.getPlace();
+						//console.log(place.address_components);
+					});
+				} else {
+
+				}
+				///////////////////////////////////
+			});
+
+			function onPhotoURISuccess(imageURI) {
+				resetView();
+			
+				var largeImage = document.getElementById('largeImage');
+				largeImage.style.display = 'block';
+				largeImage.src = imageURI;
+				
+				onImageUpdated();				
+				
+				uri= imageURI;
+				window.resolveLocalFileSystemURI(imageURI, onFileEntryComplete, isFail);
+				
+				//initialize view tags page
+				displayTagImage(imageURI) ;
+				
+				//clear arrays
+				tagObjects=new Array();
+			    tagObjectsSaved=new Array();
+			    
+			    //getData about loaded image
+				viewData(imageURI);
+				
+				//resetting click function to view current image full screen
+				$('#largeImage').click(function() { fullScreen(largeImage.src); });
+
+			}
+			
+			function photoCaptureSuccess (uri) {
+			  onPhotoURISuccess(uri);
+			  clearMetadata();
+			  date=getCurrentDate();
+			  time=getCurrentTime();
+			  updateDB();
+			  $.mobile.changePage("#ConfirmLocation");
+			}
+
+			function onFileEntryComplete(fileEntry) {
+				fileEntry.file(successFile, isFail);
+				fileEntry.getMetadata(successMetadata, isFail);
+			}
+
+			function capturePhoto() {
+				// Take picture using device camera and retrieve image
+				navigator.camera.getPicture(photoCaptureSuccess, onFail, {
+					destinationType : navigator.camera.DestinationType.FILE_URI,
+					quality : 50
+				});
+				
+			}
+
+			function getPhoto(source) {
+				// Retrieve image file location from specified source
+				navigator.camera.getPicture(onPhotoURISuccess, onFail, {
+					quality : 50,
+					destinationType : destinationType.FILE_URI,
+					sourceType : source
+				});
+			}
+
+			function save() {
+				nickname = $("#nickName").val();
+				date = $("#editDate").val();
+				time = $("#editTime").val();
+				loc= $("#editLocation").val();
+				//people=$("#editPeople").val().split(",");
+				description=$("#editDiscription").val();
+				if(loc!=""){
+					adressToCoordinate(loc);
+				}
+				updateDB();
+			}
+			
+			initializePageShowFunctions();
+
+		</script>
+	</head>
+	<body>
+		<!-- Page Start-->
+		<div id="main" data-role="page" data-theme="a">
+			<!-- Page Header Start -->
+			<div data-role="header" data-position="fixed">
+				<h1>PhotArk Mobile</h1>
+			</div>
+			<!-- Page Header End -->
+			<!-- Page Body Start -->
+			<div id="a" data-role="content" align="justify">				
+						
+					<ul id="mainMenu" data-role="listview" data-theme="a" data-inset="false">
+						<img id="largeImage"
+						src="images/home.png"  />
+						<li data-icon="arrow-r" id="captureButton">
+							<a href="#" onclick="capturePhoto()">Capture Photo</a>
+						</li>
+						<li data-icon="arrow-r" id="galleryButton">
+							<a href="#" onclick="getPhoto(pictureSource.PHOTOLIBRARY)">From Gallery</a>
+						</li>
+						<li data-icon="arrow-r" id="webAlbumButton">
+							<a href="#webAlbum">Web Album</a>
+						</li>
+						<li data-icon="arrow-r" id="searchButton">
+							<a href="#search_photoes">Search</a>
+						</li>
+						<li id="imageInfoButton" data-icon="arrow-r" style="display: none">
+							<a href="#imageInfo" data-rel="dialog" >Image Info</a>
+						</li>
+						<li id="photoTagButton" data-icon="arrow-r" style="display: none">
+							<a href="#photoTag">View tags</a>
+						</li>
+						<li id="editDataButton" data-icon="arrow-r" style="display: none">
+							<a href="#EditMetadata">Edit image data</a>
+						</li>
+						<li id="deleteButton" data-icon="arrow-r" style="display: none" data-rel="dialog">
+							<a href="#ConfirmDelete">Delete Photo</a>
+						</li>
+					</ul>
+					
+				<!-- This is not visible
+				Used to store the uri for photoswipe -->
+				<div id="slideshow" style="display: none;">
+					<ul id="Gallery">
+						<!-- To be added dynamically	 -->
+					</ul>
+				</div>
+
+			</div>
+			<!-- Page Body End -->
+			<!-- Page Footer Start -->
+			<div data-role="footer" data-position="fixed">
+				<div id="toolbar_icons" style="text-align: center" >
+					<a href="#" id="homeButton" data-role="button" data-icon="home" style="display: none" onclick="onHomeButtonClicked()">Home</a>
+					<a href="#help" id="helpButton" data-role="button" data-icon="info" >Help</a>
+				</div>
+				
+			</div>
+			<!-- Page Footer End -->
+		</div>
+
+		<!-- Edit metadata page -->
+		<div id="EditMetadata" data-role="page">
+			<div data-role="header" data-position="fixed">
+				<h1>Edit Metadata</h1>
+			</div>
+
+			<!-- Form Content -->
+			<div data-role="content">
+
+				<div data-role="fieldcontain">
+					<label for="name"> Photo nick name: </label>
+					<input type="text"
+					id="nickName" value="" />
+				</div>
+				<div data-role="fieldcontain">
+					<label for="name"> Date: </label>
+					<input type="text" name="name"
+					id="editDate" value="" onclick='editDateOnClick($("#editDate"))' />
+				</div>
+				<div data-role="fieldcontain">
+					<label for="name"> Time: </label>
+					<input type="text" name="name"
+					id="editTime" value="" onclick='editTimeOnClick($("#editTime"))' />
+				</div>
+				<div data-role="fieldcontain">
+					<label for="textarea"> Location </label>
+					<input type="text" name="searchbox" id="editLocation" value="" />
+				</div>
+
+				<div data-role="fieldcontain">
+					<label for="textarea"> Discription </label>
+					<textarea cols="40" rows="8" name="textarea" id="editDiscription"></textarea>
+				</div>
+			</div>
+			<div data-role="footer" style="text-align: center">
+				<a href="index.html" data-icon="check" onclick="save()">Save</a>
+				<a href="index.html" data-icon="delete">Cancel</a>
+			</div>
+		</div>
+		<!-- Page End -->
+
+		<!-- Contacts List Page-->
+		<div id="ContactsPage" data-role="page">
+			<div data-role="header">
+				<h1>Contacts</h1>
+			</div>
+			<div data-role="content">
+
+				<ul id="allContacts" data-role="listview" data-filter="true" data-inset="true">
+
+				</ul>
+			</div>
+		</div>
+		<!-- Page End -->
+
+		<!-- Confirm Delete Dialog-->
+		<div id="ConfirmDelete" data-role="dialog">
+			<div data-role="header">
+				<h1>Confirm Delete</h1>
+			</div>
+			<div data-role="content">
+				<p>
+					Are you sure you want to delete this photo?
+				</p>
+				<a href="index.html"
+				data-role="button" onclick="deleteFile()">Delete</a>
+				<a href="index.html"
+				data-role="button">Cancel</a>
+			</div>
+		</div>
+		<!-- Page End -->
+		<!-- User's Web Album -->
+		<div id="webAlbum" data-role="page">
+			<!-- Page Header Start -->
+			<div data-role="header" data-position="fixed">
+				<h1>PhotArk Mobile</h1>
+			</div>
+			<!-- Page Header End -->
+			<!-- Content Start-->
+				<!--Facebook Start-->
+				<div data-role="fieldcontain" class="switch">
+					<fieldset data-role="controlgroup">
+						<label for="facebookSwitch">Facebook</label>
+						<select name="facebookSwitch" id="facebookSwitch" data-theme="a" data-role="slider" data-mini="true">
+							<option value="off" selected="true">
+									Off
+							</option>
+							<option value="on">
+									On
+							</option>
+						</select>
+					</fieldset>
+				</div>
+				<div id="facebook"></div>
+				<!--Facebook End-->
+				<hr />
+				<!--Picasa Begin-->
+				<div data-role="fieldcontain" class="switch">
+					<fieldset data-role="controlgroup">
+						<label for="picasaSwitch">Picasa</label>
+						<select name="picasaSwitch" id="picasaSwitch" data-theme="a" data-role="slider" data-mini="true">
+							<option value="off" selected="true">
+									Off
+							</option>
+							<option value="on">
+									On
+							</option>
+						</select>
+					</fieldset>
+				</div>
+				<div id="picasa"></div>
+				<hr />
+				<!--Picasa End-->
+				<!--Flickr Begin-->
+				<div data-role="fieldcontain" class="switch">
+					<fieldset data-role="controlgroup">
+						<label for="flickrSwitch">Flickr</label>
+						<select name="flickrSwitch" id="flickrSwitch" data-theme="a" data-role="slider" data-mini="true">
+							<option value="off" selected="true">
+								Off
+							</option>
+							<option value="on">
+								On
+							</option>
+						</select>
+					</fieldset>
+				</div>
+				<div id="flickr"></div>
+				<!--Flickr End-->
+			<!-- Content End -->
+			<!-- Page Footer Start -->
+			<div data-role="footer" data-position="fixed" >
+				<div id="toolbar_message" style="text-align: center">
+					<a href="#" data-role="button" data-icon="search">Search</a>
+				</div>
+				<div id="toolbar_icons" style="display: none;text-align: center" >
+					<a href="#EditMetadata" data-role="button" data-icon="plus" data-transition="flip">Edit Metadata</a>
+					<a href="#" data-role="button" data-icon="search">Search</a>
+					<a href="#ConfirmDelete" data-role="button" data-icon="delete" data-rel="dialog" data-transition="pop">Delete</a>
+				</div>
+			</div>
+			<!-- Page Footer End -->
+		</div>
+	
+	<!-- Search page -->
+		<div id="search_photoes" data-role="page">
+			<div data-role="header" data-position="fixed">
+				<h1>Search Photos</h1>
+			</div>
+			<div data-role="content">
+				<div data-role="fieldcontain">
+					<label for="search"> Enter name: </label>
+					<input type="text" name="search" id="searchName" value="" />
+				</div>
+
+				<p>
+					Date:
+				</p>
+				<div data-role="fieldcontain">
+					<label for="search">From:</label>
+					<input type="text" name="search" id="searchStartDate" value="" onclick='editDateOnClick($("#searchStartDate"))'/>
+					<label for="search">To:</label>
+					<input type="text" name="search" id="searchEndDate" value="" onclick='editDateOnClick($("#searchEndDate"))'/>
+				</div>
+
+				<div data-role="fieldcontain">
+					<label for="search"> Enter location: </label>
+					<input type="text" name="search" id="searchLocation" value="" />
+				</div>
+
+				<div data-role="fieldcontain">
+					<label for="textarea"> People (Separated by commas): </label>
+					<textarea cols="40" rows="8" name="textarea" id="searchPeople"></textarea>
+					<a href="#ContactsPage" data-role="button" data-theme="a"  data-mini="true">Browse</a>
+				</div>
+
+			</div>
+			<div data-role="footer" data-position="fixed" style="text-align: center">
+				<a href="#"
+				data-role="button" data-mini="true" data-icon="search" onclick='doSearch()'>Search</a>
+				<a href="#"
+				data-role="button" data-rel="dialog" data-transition="pop" data-icon="grid" onclick="getPhoto(pictureSource.PHOTOLIBRARY)">Show all</a>
+				<a href="index.html"
+				data-role="button" data-mini="true"
+				data-icon="back">Cancel</a>
+			</div>
+		</div>
+		<!-- Page End -->
+		
+		<!-- Search Results page-->
+		<div id="searchResults" data-role="page">
+			<div data-role="header">
+				<h1>Results</h1>
+			</div>
+			<div data-role="content">
+
+				<div class="ui-grid-a" id="resultGallery" style="padding=5px !important">
+					<!-- To be added dinamically -->
+				</div>
+
+			</div>
+			<!-- Page Footer Start -->
+			<div data-role="footer" data-position="fixed">				
+			</div>
+			<!-- Page Footer End -->
+		</div>
+		<!-- Page End -->
+		
+		<!-- Image Info page-->
+		<div id="imageInfo" data-role="page">
+			<div data-role="header">
+				<h1>Image Info</h1>
+			</div>
+			<div data-role="content">				
+				<div id="metadata">
+					<p>Capture or open a photo to view data.</p>
+				</div>
+				<div id="infoControlls">
+					<a href="#mapView"
+					data-role="button" data-mini="true" data-icon="star" onclick=''>Show in Map</a>
+				</div>
+			</div>
+		</div>
+		<!-- Page End -->
+		
+		<!-- Confirm Location Dialog-->
+		<div id="ConfirmLocation" data-role="dialog">
+			<div data-role="header">
+				<h1>Add location.</h1>
+			</div>
+			<div data-role="content">
+				<p>
+					Do you want to add current location to this photo?
+				</p>
+				<a href="#"
+				data-role="button" onclick="addLocation()"
+				data-theme="b">Yes</a>
+				<a href="index.html"
+				data-role="button"
+				data-theme="b">No</a>
+			</div>
+		</div>
+		<!-- Page End -->
+		
+		<!-- Map View-->
+		<div id="mapView" data-role="page">
+			<div data-role="header">
+				<a href="index.html" data-icon="back">Back</a>
+				<h1>Map View</h1>
+			</div>
+			<div data-role="content">
+				<div class="item rounded dark">					
+					<div id="map_canvas" align="center"></div>
+				</div>		
+			</div>
+			<!-- Page Footer Start -->
+			<div data-role="footer" data-position="fixed">				
+			</div>
+			<!-- Page Footer End -->
+		</div>
+		<!-- Page End -->
+		
+		<!-- options menu page-->
+		<div id="optionMenu" data-role="dialog">
+			<div data-role="header">
+				<h1>Menu</h1>
+			</div>
+			<div data-role="content">				
+				<div id="options">
+					<!-- <a href="#"
+					data-role="button" data-mini="false" data-icon="grid" onclick='viewAllImages()'>View all photos</a>
+					<a href="#mapView"
+					data-role="button" data-mini="false" data-icon="grid" onclick=''>View all in map</a> -->
+					<a href="#help"
+					data-role="button" data-mini="false" data-icon="info" onclick=''>Help</a>
+					<a href="#about"
+					data-role="button" data-mini="false" data-icon="info" onclick=''>About</a>
+					<a href="#"
+					data-role="button" data-mini="false" data-icon="delete" onclick='navigator.app.exitApp()'>Exit</a>
+				</div>
+			</div>
+		</div>
+		<!-- Page End -->
+		
+		<!-- photo tag page-->
+		<div id="photoTag" data-role="page"   data-theme="a">
+			<div data-role="header" >
+				<h1>Tag Photo</h1>
+				<a href="#main" 
+				data-role="button" data-mini="true" data-icon="back" >Back</a>
+			</div>
+			<div data-role="content">
+				<div id="tagPicture">
+					<img id="tagImage"/>
+				</div>
+				<a href="#" id="enableTaggingButton"
+				data-role="button" data-mini="false" data-icon="grid" onclick='enableTagging()'>Add Tags</a>
+				<a href="#" id="saveTagsButton"
+				data-role="button" data-mini="false" data-icon="grid" style="display: none" onclick='saveTags()'>Save tags</a>
+				<a href="#" id="clearTagsButton"
+				data-role="button" data-mini="false" data-icon="delete" onclick='clearTags()'>Clear tags</a>
+				<a href="#" id="cancelTaggingButton"
+				data-role="button" data-mini="false" data-icon="grid" style="display: none" onclick='enableTagging()'>Cancel</a>
+				
+			</div>
+			<!-- Page Footer Start -->
+			<div data-role="footer" data-position="fixed">				
+			</div>
+			<!-- Page Footer End -->
+		</div>
+		<!-- Page End -->
+		
+		<!-- New Tag Dialog-->
+		<div id="NewTag" data-role="dialog">
+			<div data-role="header">
+				<h1>Add Tag.</h1>
+			</div>
+			<div data-role="content">
+				<div data-role="fieldcontain">
+					<label for="tagName"> Name: </label>
+					<input type="text" name="tagName" id="editPeople" value=""/>
+					<a href="#ContactsPage" data-role="button" data-theme="a"  data-mini="true">Browse</a>
+				</div>
+				<a href="#" data-role="button" data-mini="true" onclick="addTagClicked()">Ok</a>
+				<a href="#photoTag" data-role="button"  data-mini="true">Cancel</a>
+			</div>
+		</div>
+		<!-- Page End -->
+		
+		<!-- help page-->
+		<div id="help" data-role="page" data-add-back-btn="true"  data-theme="a">
+			<div data-role="header" >
+				<h1>Help</h1>
+			</div>
+			<div data-role="content">
+				<ul>
+					<li>To get started capture a photo, open existing photo or go to web albums</li>
+					<li>You can organize photos by editing image related data and saving</li>
+					<li>You can search photos according to data you have added</li>
+					<li>You can tag people in your photo by going to view tags section</li>
+					<li>You can view a image full screen by tapping on it</li>
+					<li>Deleting a photo through the application will delete the photo from phone memory too</li>
+					<li>You can access your web albums by toggling the respective switch</li>
+					<li>For Flickr and Picasa, one needs to copy paste the code that is displayed</li>
+				</ul>
+			</div>
+			<!-- Page Footer Start -->
+			<div data-role="footer" data-position="fixed">				
+			</div>
+			<!-- Page Footer End -->
+		</div>
+		<!-- Page End -->
+		
+		<!-- About page-->
+		<div id="about" data-role="dialog" data-add-back-btn="true"  data-theme="a">
+			<div data-role="header" >
+				<h1>About</h1>
+			</div>
+			<div data-role="content" style="text-align:center">
+				<p>A free and open source photo manager application for mobile devices.</p>
+				<br/>
+				<a  href="http://incubator.apache.org/photark/">Project home page</a>
+				<br/>
+				<p align="center">Apache Software foundation 2012</p>
+			</div>
+		</div>
+		<!-- Page End -->
+		<script>
+		    //Script to remove the flashing jQuery transition between pages
+			$("a[data-role=tab]").each(function () {
+				var anchor = $(this);
+				anchor.bind("click", function () {
+					$.mobile.changePage(anchor.attr("href"), {
+					    transition: "none",
+					    changeHash: false
+					});
+					return false;
+				});
+			});
+		
+			$("div[data-role=page]").bind("pagebeforeshow", function (e, data) {
+				$.mobile.silentScroll(0);
+				$.mobile.changePage.defaults.transition = 'slide';
+			});
+		</script>
+
+	</body>
+</html>

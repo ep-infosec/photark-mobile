@@ -1,0 +1,28 @@
+#tagPicture p {
+    position: absolute;   
+}
+.more
+{
+	margin-right: 5px;
+}
+.cell
+{
+	float: left;
+	width:	150px;
+	height:150px;
+}
+.image
+{
+	margin:auto;
+}
+
+.tile-title
+{
+	font-size: 3.1625em;
+	font-weight: bolder;
+	color: #000000;
+}
+.live-tile
+{
+	background-color:red;
+}
